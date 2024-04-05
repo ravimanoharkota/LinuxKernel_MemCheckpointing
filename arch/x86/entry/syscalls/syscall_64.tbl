@@ -333,6 +333,8 @@
 324	common	membarrier		sys_membarrier
 325	common	mlock2			sys_mlock2
 
+462 common  cp_range         sys_cp_range
+
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
 # for native 64-bit operation.

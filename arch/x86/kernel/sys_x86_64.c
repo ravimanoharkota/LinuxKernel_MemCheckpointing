@@ -19,6 +19,8 @@
 #include <asm/ia32.h>
 #include <asm/syscalls.h>
 
+#include <linux/fs.h>
+#include <linux/slab.h>
 /*
  * Align a virtual address to avoid aliasing in the I$ on AMD F15h.
  */
@@ -95,6 +97,48 @@ SYSCALL_DEFINE6(mmap, unsigned long, addr, unsigned long, len,
 	error = sys_mmap_pgoff(addr, len, prot, flags, fd, off >> PAGE_SHIFT);
 out:
 	return error;
+}
+
+SYSCALL_DEFINE2(cp_range, unsigned long, start_addr, unsigned long, end_addr)
+{
+	struct file *fp = NULL;
+	loff_t pos = 0;
+	struct page *last_page = NULL, **pages = NULL;
+	unsigned long addr = 0;
+
+	pr_info("cp_range: enter\n");
+
+	pages = kmalloc(sizeof(struct page*), GFP_KERNEL);
+
+	fp = filp_open("/home/cp_P1", O_WRONLY|O_CREAT|O_APPEND, 0644);
+
+	down_read(&current->mm->mmap_sem);
+	for (addr = start_addr; addr <= end_addr; addr++) {
+		struct page *curr_page = NULL;
+		
+		get_user_pages(current,
+			current->mm,
+			addr,
+			1,
+			0,
+			0,
+			pages,
+			NULL);
+		curr_page = pages[0];
+		if (last_page != curr_page) {
+			pr_info("page[0] = %p\n", curr_page);
+			kernel_write(fp, page_address(curr_page), PAGE_SIZE, &pos);
+			last_page = curr_page;
+			pos += PAGE_SIZE;
+		}
+	}
+	up_read(&current->mm->mmap_sem);
+
+	filp_close(fp, NULL);
+	kfree(pages);
+
+	pr_info("cp_range: exit\n");
+	return 0;
 }
 
 static void find_start_end(unsigned long flags, unsigned long *begin,
